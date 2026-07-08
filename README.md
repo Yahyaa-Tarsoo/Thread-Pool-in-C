@@ -12,11 +12,11 @@ understand concurrency at a lower level before I hit OS/architecture courses.
 - The queue is a circular buffer, so tasks are added/removed in O(1) without
   shifting elements around
 - Workers sleep (don't spin/busy-wait) when there's nothing to do, and wake
-  up when a task is added — using condition variables instead of a
+  up when a task is added , using condition variables instead of a
   `while(true) { check flag }` loop
 - If the queue is full, `pool_add_task` blocks the caller until a slot opens
   up, instead of dropping tasks or growing unbounded
-- Shutdown is "graceful" — if you call `pool_shutdown()` while tasks are
+- Shutdown is "graceful" i.e if you call `pool_shutdown()` while tasks are
   still queued, workers finish everything left before exiting, they don't
   just stop mid-queue
 - Tasks are generic: submit any function that takes a `void *`, so the pool
