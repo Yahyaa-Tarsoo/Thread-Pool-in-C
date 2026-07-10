@@ -12,11 +12,11 @@ understand concurrency at a lower level before I hit OS/architecture courses.
 - The queue is a circular buffer, so tasks are added/removed in O(1) without
   shifting elements around
 - Workers sleep (don't spin/busy-wait) when there's nothing to do, and wake
-  up when a task is added , using condition variables instead of a
+  up when a task is added — using condition variables instead of a
   `while(true) { check flag }` loop
 - If the queue is full, `pool_add_task` blocks the caller until a slot opens
   up, instead of dropping tasks or growing unbounded
-- Shutdown is "graceful" i.e if you call `pool_shutdown()` while tasks are
+- Shutdown is "graceful" — if you call `pool_shutdown()` while tasks are
   still queued, workers finish everything left before exiting, they don't
   just stop mid-queue
 - Tasks are generic: submit any function that takes a `void *`, so the pool
@@ -68,6 +68,50 @@ make run
 
 Ran it through Valgrind (`--leak-check=full`) — no leaks, no errors. Also
 compiles clean with `gcc -Wall -Wextra`, no warnings.
+
+## Benchmark
+
+To actually measure whether this thing does what it's supposed to (rather
+than just trusting it), I benchmarked it with a CPU-bound synthetic workload:
+counting primes below 100,000 using plain trial division, 200 tasks per run,
+averaged over 5 trials per thread count. Wall-clock time measured with
+`clock_gettime(CLOCK_MONOTONIC, ...)`, timed from right after pool creation
+to right after `pool_shutdown()` returns (so only actual task-processing
+time is measured, not pool setup).
+
+Machine: Intel Core i7-13620H (6 performance cores + 4 efficiency cores, 16
+logical threads via Hyper-Threading on the P-cores).
+
+| Threads | Avg time (s) | Speedup | Efficiency |
+|---|---|---|---|
+| 1  | 124.80 | 1.00x | 100%  |
+| 2  | 62.64  | 1.99x | 99.7% |
+| 4  | 31.56  | 3.95x | 98.8% |
+| 8  | 20.49  | 6.09x | 76.1% |
+| 16 | 15.35  | 8.13x | 50.8% |
+| 32 | 15.26  | 8.18x | 25.6% |
+
+*(speedup = time at 1 thread / time at N threads. efficiency = speedup / N.)*
+
+**What this shows:** scaling is close to perfect (98-100% efficiency) up
+through 4 threads, then drops off past 8, and completely flattens at 16-32
+(going from 16 to 32 threads barely changes anything: 15.35s vs 15.26s).
+
+This isn't a flaw in the thread pool, it's a hardware ceiling. My CPU only
+has 6 "real" performance cores. Two of those can each juggle 2 threads at
+once, so the chip reports 16 logical threads total, but that's not the same
+as 16 independent cores. Once every task queued up needs a thread and all 6
+performance cores are already busy, additional threads are just splitting
+time on cores that are already loaded, or landing on the weaker efficiency
+cores, so each extra thread buys less and less. Past 16, there's nothing
+left to hand work to, which is exactly why 16 and 32 threads perform almost
+identically.
+
+Reproduce it yourself:
+```
+gcc -Wall -Wextra -Iinclude -pthread src/thread_pool.c benchmarks/benchmark.c -o benchmark
+./benchmark
+```
 
 ## What's next
 
