@@ -98,7 +98,7 @@ through 4 threads, then drops off past 8, and completely flattens at 16-32
 (going from 16 to 32 threads barely changes anything: 15.35s vs 15.26s).
 
 This isn't a flaw in the thread pool, it's a hardware ceiling. My CPU only
-has 6 "real" performance cores. Two of those can each juggle 2 threads at
+has 6 "real" performance cores. Those can each juggle 2 threads at
 once, so the chip reports 16 logical threads total, but that's not the same
 as 16 independent cores. Once every task queued up needs a thread and all 6
 performance cores are already busy, additional threads are just splitting
