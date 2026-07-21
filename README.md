@@ -113,10 +113,3 @@ gcc -Wall -Wextra -Iinclude -pthread src/thread_pool.c benchmarks/benchmark.c -o
 ./benchmark
 ```
 
-## What's next
-
-I'm using this as the base for a bigger project — a multithreaded file
-indexer/search tool where each file gets submitted as a task to this pool.
-Also have a `poll()`-based TCP server (a different project) that I might
-eventually combine this with, so requests can be handled off the main I/O
-thread instead of blocking it.
